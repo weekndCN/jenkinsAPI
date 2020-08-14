@@ -1,16 +1,9 @@
-package main
+package jenkins
 
 import (
 	"fmt"
 	"net/http"
 	"io/ioutil"
-)
-
-// define const value
-const (
-	jobsPath 	= "tree=jobs[displayName,description,displayNameOrNull,fullDisplayName,fullName,name,url]"
-	viewPath 	= "tree=views[description,name,url,jobs]"
-	buildPath 	= "tree=allBuilds[description,displayName,duration,estimatedDuration,result,timestamp,id,number,url,builds]&depth=2"
 )
 
 // Auth is jenkins api token certified
@@ -54,14 +47,25 @@ func (jenkins *Jenkins) get(path, params string, body *interface{}, depth int) (
 
 // buildURL to get build details
 func (jenkins *Jenkins) buildURL(path, params string, depth int) (requestURL string) {
+	/*
 	requestURL = jenkins.baseURL + "/api/json?" + path
 	if params != "" {
 		requestURL = jenkins.baseURL + params + "/api/json?" + path
 	}
+	*/
+	switch params {
+	// eg: http://xxxx/job/job_name/111/consoleText
+	case "log":
+		requestURL = path + "consoleText"
+	case "jobs":
+		requestURL =  jenkins.baseURL + "/api/json?"
+	default:
+		requestURL =  jenkins.baseURL + "/api/json?"
+	}
 
 	if depth > 0 {
 		requestURL = requestURL + fmt.Sprintf("&depth=%d",depth)
-	}
+	} 
 
 	fmt.Println(requestURL)
 
@@ -103,16 +107,9 @@ func (jenkins *Jenkins) GetJobs(depth int) (interface{}, error) {
 	return jobs, err
 }
 
-func main() {
-	auth := &Auth{
-		Username: "weeknd",
-		APIToken: "1166c439b661e415ade72bc6d3fcff4211",
-	}
-	jenkins := NewJenkins(auth, "http://t01.corp.wukongbox.cn:9090")
-	job, err := jenkins.GetJobs(2)
-
-	if err != nil {
-		return
-	}
-	fmt.Println(job)
+// GetBuild to get build log of a specified job name
+func (jenkins *Jenkins) GetBuild(url string) (interface{}, error)  {
+	var buildlog interface{}
+	err := jenkins.get(url, "log", &buildlog, 0)
+	return buildlog, err
 }
