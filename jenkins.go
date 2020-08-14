@@ -1,10 +1,8 @@
-package jenkins
+package main
 
 import (
 	"fmt"
 	"net/http"
-	"net/url"
-	"encoding/json"
 	"io/ioutil"
 )
 
@@ -37,16 +35,11 @@ func NewJenkins(auth *Auth, baseURL string) *Jenkins {
 	}
 }
 
-// GetJob to get details by a specified name of job
-func (jenkins *Jenkins) GetJob(name string) (job interface{}, err error) {
-	err = jenkins.get(fmt.Sprintf("/job/%s", name), nil, &job)
-	return
-}
-
 // get func new request to jenkins
-func (jenkins *Jenkins) get(path string, params url.Values, body interface{}) (err error) {
-	requestURL := jenkins.buildURL(path, params)
+func (jenkins *Jenkins) get(path, params string, body *interface{}, depth int) (err error) {
+	requestURL := jenkins.buildURL(path, params, depth)
 	req, err := http.NewRequest("GET", requestURL, nil)
+
 	if err != nil {
 		return
 	}
@@ -55,18 +48,22 @@ func (jenkins *Jenkins) get(path string, params url.Values, body interface{}) (e
 	if err != nil {
 		return
 	}
+
 	return jenkins.parseResponse(resp, body)
 }
 
 // buildURL to get build details
-func (jenkins *Jenkins) buildURL(path string, params url.Values) (requestURL string) {
-	requestURL = jenkins.baseURL + path + "/api/json"
-	if params != nil {
-		queryString := params.Encode()
-		if queryString != "" {
-			requestURL = requestURL + "?" + queryString
-		}
+func (jenkins *Jenkins) buildURL(path, params string, depth int) (requestURL string) {
+	requestURL = jenkins.baseURL + "/api/json?" + path
+	if params != "" {
+		requestURL = jenkins.baseURL + params + "/api/json?" + path
 	}
+
+	if depth > 0 {
+		requestURL = requestURL + fmt.Sprintf("&depth=%d",depth)
+	}
+
+	fmt.Println(requestURL)
 
 	return
 }
@@ -82,7 +79,7 @@ func (jenkins *Jenkins) sendRequest(req *http.Request) (*http.Response, error) {
 }
 
 // parseResponse to parse response body
-func (jenkins *Jenkins) parseResponse(resp *http.Response, body interface{}) (err error) {
+func (jenkins *Jenkins) parseResponse(resp *http.Response, body *interface {}) (err error) {
 	defer resp.Body.Close()
 
 	if body == nil {
@@ -93,13 +90,29 @@ func (jenkins *Jenkins) parseResponse(resp *http.Response, body interface{}) (er
 	if err != nil {
 		return
 	}
+	
+	*body = string(data)
 
-	return json.Unmarshal(data, body)
+	return
 }
 
 // GetJobs is jenkins methods
-func (jenkins *Jenkins) GetJobs() (interface{}, error) {
-	var payload interface{}
-	err := jenkins.get("", nil, &payload)
-	return payload, err
+func (jenkins *Jenkins) GetJobs(depth int) (interface{}, error) {
+	var jobs interface{}
+	err := jenkins.get("", "", &jobs, depth)
+	return jobs, err
+}
+
+func main() {
+	auth := &Auth{
+		Username: "weeknd",
+		APIToken: "1166c439b661e415ade72bc6d3fcff4211",
+	}
+	jenkins := NewJenkins(auth, "http://t01.corp.wukongbox.cn:9090")
+	job, err := jenkins.GetJobs(2)
+
+	if err != nil {
+		return
+	}
+	fmt.Println(job)
 }
